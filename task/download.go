@@ -102,10 +102,17 @@ func TestDownloadSpeed(ipSet utils.PingDelaySet) (speedSet utils.DownloadSpeedSe
 
 func getDialContext(ip *net.IPAddr) func(ctx context.Context, network, address string) (net.Conn, error) {
 	var fakeSourceAddr string
+
+	// 检查是否有端口映射（反代模式）
+	port := TCPPort
+	if mappedPort, exists := PortMapping[ip.String()]; exists {
+		port = mappedPort
+	}
+
 	if isIPv4(ip.String()) {
-		fakeSourceAddr = fmt.Sprintf("%s:%d", ip.String(), TCPPort)
+		fakeSourceAddr = fmt.Sprintf("%s:%d", ip.String(), port)
 	} else {
-		fakeSourceAddr = fmt.Sprintf("[%s]:%d", ip.String(), TCPPort)
+		fakeSourceAddr = fmt.Sprintf("[%s]:%d", ip.String(), port)
 	}
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, network, fakeSourceAddr)
@@ -155,7 +162,6 @@ func downloadHandler(ip *net.IPAddr) (float64, string) {
 			return nil
 		},
 	}
-	defer client.CloseIdleConnections()
 	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
 		if utils.Debug { // 调试模式下，输出更多信息

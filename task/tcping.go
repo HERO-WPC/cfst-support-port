@@ -89,10 +89,17 @@ func (p *Ping) start(ip *net.IPAddr) {
 func (p *Ping) tcping(ip *net.IPAddr) (bool, time.Duration) {
 	startTime := time.Now()
 	var fullAddress string
+
+	// 检查是否有端口映射（反代模式）
+	port := TCPPort
+	if mappedPort, exists := PortMapping[ip.String()]; exists {
+		port = mappedPort
+	}
+
 	if isIPv4(ip.String()) {
-		fullAddress = fmt.Sprintf("%s:%d", ip.String(), TCPPort)
+		fullAddress = fmt.Sprintf("%s:%d", ip.String(), port)
 	} else {
-		fullAddress = fmt.Sprintf("[%s]:%d", ip.String(), TCPPort)
+		fullAddress = fmt.Sprintf("[%s]:%d", ip.String(), port)
 	}
 	conn, err := net.DialTimeout("tcp", fullAddress, tcpConnectTimeout)
 	if err != nil {
@@ -138,12 +145,19 @@ func (p *Ping) tcpingHandler(ip *net.IPAddr) {
 	if recv == 0 {
 		return
 	}
+	// 获取使用的端口
+	port := TCPPort
+	if mappedPort, exists := PortMapping[ip.String()]; exists {
+		port = mappedPort
+	}
+
 	data := &utils.PingData{
 		IP:       ip,
 		Sended:   PingTimes,
 		Received: recv,
 		Delay:    totalDlay / time.Duration(recv),
 		Colo:     colo,
+		Port:     port,
 	}
 	p.appendIPData(data)
 }
